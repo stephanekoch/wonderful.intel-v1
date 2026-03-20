@@ -75,11 +75,18 @@ export function useResearch(competitors) {
     setLastRefreshed(new Date())
   }, [competitors, refreshCompetitor])
 
+  const initData = useCallback((competitorId) => {
+    setData(prev => {
+      if (prev[competitorId]) return prev // already exists
+      return { ...prev, [competitorId]: {} }
+    })
+  }, [])
+
   const isLoading = useCallback((competitorId) => {
     return QUESTIONS.some(q => loading[`${competitorId}_${q}`])
   }, [loading])
 
   const isAnyLoading = Object.values(loading).some(Boolean)
 
-  return { data, loading, isLoading, isAnyLoading, refreshCompetitor, refreshAll, lastRefreshed }
+  return { data, loading, isLoading, isAnyLoading, refreshCompetitor, refreshAll, lastRefreshed, initData }
 }
