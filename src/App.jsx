@@ -177,7 +177,32 @@ function SummaryTab({ competitors, data, period, onPeriodChange }) {
 
 function CompetitorTab({ competitor, data, onRefresh, isLoading }) {
   const d = data[competitor.id]
-  if(!d) return null
+  if(!d) return (
+    <div>
+      <div className="flex items-center gap-5 mb-5 p-6 bg-white border border-[#e8e4f4] rounded-2xl shadow-sm">
+        <div className="w-[52px] h-[52px] rounded-[13px] bg-[#f8f8f8] flex items-center justify-center flex-shrink-0">
+          <img src={favicon(competitor.domain,64)} alt={competitor.name} className="w-9 h-9 rounded-md"/>
+        </div>
+        <div>
+          <h2 className="font-['Lora'] text-[24px] font-semibold mb-0.5">{competitor.name}</h2>
+          <p className="text-[13px] text-[#6b6490]">{competitor.meta}</p>
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          <button onClick={onRefresh} disabled={isLoading} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold bg-white border border-[#e8e4f4] text-[#6b6490] hover:border-[#6c5ce7] hover:text-[#6c5ce7] transition-all cursor-pointer disabled:opacity-50">
+            {isLoading?'⟳ Loading...':'↺ Refresh'}
+          </button>
+        </div>
+      </div>
+      <div className="bg-white border border-[#e8e4f4] rounded-2xl p-12 shadow-sm flex flex-col items-center justify-center gap-4">
+        <div className="text-[32px]">🔍</div>
+        <p className="font-['Lora'] text-[18px] text-[#16112e]">No data yet for {competitor.name}</p>
+        <p className="text-[14px] text-[#6b6490]">Click Refresh to pull live intelligence from LinkedIn, G2, and the web.</p>
+        <button onClick={onRefresh} disabled={isLoading} className="mt-2 px-6 py-2.5 rounded-[10px] text-[14px] font-semibold text-white cursor-pointer disabled:opacity-50" style={{background:'linear-gradient(135deg,#6c5ce7 0%,#a29bfe 100%)',boxShadow:'0 2px 8px rgba(108,92,231,0.35)'}}>
+          {isLoading?'⟳ Refreshing...':'↺ Refresh now'}
+        </button>
+      </div>
+    </div>
+  )
   const cards = [
     { tag:'Product features', variant:'amber', desc:'Engineering hires, changelog entries, and exec posts — last 30 days.', key:'product_features' },
     { tag:'ICP', variant:'accent', desc:'Sales hire locations, case study verticals, and press releases.', key:'icp' },
@@ -296,13 +321,17 @@ export default function App() {
   const [activeTab,setActiveTab] = useState('summary')
   const [period,setPeriod] = useState('3m')
   const [competitors,setCompetitors] = useState(COMPETITORS)
-  const { data, isLoading, isAnyLoading, refreshCompetitor, refreshAll, lastRefreshed } = useResearch(competitors)
+  const { data, isLoading, isAnyLoading, refreshCompetitor, refreshAll, lastRefreshed, initData } = useResearch(competitors)
   const active = competitors.filter(c=>c.active)
   const handleToggle = (id) => setCompetitors(p=>p.map(c=>c.id===id?{...c,active:!c.active}:c))
   const handleAdd = (name,domain) => {
     const id = name.toLowerCase().replace(/[^a-z0-9]/g,'')
     const colors = ['#7c3aed','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6']
-    setCompetitors(p=>[...p,{id,name,domain,color:colors[p.length%colors.length],tagColor:'neutral',meta:`${domain} · AI platform`,active:true}])
+    const newComp = {id,name,domain,color:colors[competitors.length%colors.length],tagColor:'neutral',meta:`${domain} · AI platform`,active:true}
+    setCompetitors(p=>[...p,newComp])
+    initData(id)
+    // Auto-navigate to the new tab and trigger a refresh
+    setActiveTab(id)
   }
   const refreshTime = lastRefreshed ? lastRefreshed.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : 'Seed data'
   return (
