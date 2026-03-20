@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { SEED_DATA } from '../data/competitors'
 
 const CACHE_KEY = 'wonderful_intel_cache'
-const CACHE_TTL = 7 * 24 * 60 * 60 * 1000 // 7 days
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000
 
 function loadCache() {
   try {
@@ -11,15 +11,13 @@ function loadCache() {
     const { data, timestamp } = JSON.parse(raw)
     if (Date.now() - timestamp > CACHE_TTL) return {}
     return data || {}
-  } catch {
-    return {}
-  }
+  } catch { return {} }
 }
 
 function saveCache(data) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }))
-  } catch { /* storage full, ignore */ }
+  } catch {}
 }
 
 const QUESTIONS = ['summary', 'product_features', 'icp', 'loves', 'hates', 'positioning', 'raw_linkedin', 'raw_g2', 'raw_news']
@@ -27,7 +25,6 @@ const QUESTIONS = ['summary', 'product_features', 'icp', 'loves', 'hates', 'posi
 export function useResearch(competitors) {
   const [data, setData] = useState(() => {
     const cached = loadCache()
-    // Start with seed data, overlay any cached real data
     const merged = { ...SEED_DATA }
     for (const [k, v] of Object.entries(cached)) {
       merged[k] = { ...merged[k], ...v }
@@ -53,30 +50,29 @@ export function useResearch(competitors) {
             ...prev,
             [competitorId]: { ...prev[competitorId], [question]: result },
           }
-          // Persist to cache
           const cache = loadCache()
           saveCache({ ...cache, [competitorId]: { ...cache[competitorId], [question]: result } })
           return updated
         })
       }
     } catch (err) {
-      console.error(`Failed to fetch ${competitorId}/${question}:`, err)
+      console.error(`Failed ${competitorId}/${question}:`, err)
     } finally {
       setLoading(l => ({ ...l, [key]: false }))
     }
   }, [])
 
   const refreshCompetitor = useCallback(async (competitor) => {
-    for (const q of QUESTIONS) {
-      await fetchOne(competitor.id, competitor.domain, q)
-    }
+    // Run all 9 questions in parallel for this competitor
+    await Promise.all(QUESTIONS.map(q => fetchOne(competitor.id, competitor.domain, q)))
     setLastRefreshed(new Date())
   }, [fetchOne])
 
   const refreshAll = useCallback(async () => {
-    for (const c of competitors.filter(c => c.active)) {
-      await refreshCompetitor(c)
-    }
+    const active = competitors.filter(c => c.active)
+    // Run all competitors in parallel
+    await Promise.all(active.map(c => refreshCompetitor(c)))
+    setLastRefreshed(new Date())
   }, [competitors, refreshCompetitor])
 
   const isLoading = useCallback((competitorId) => {
